@@ -1,0 +1,14 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Upload Picture</h1>
+    
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+        <div class="mb-3">
+            <label for="file" class="form-label">Select an image to upload:</label>
+            <input type="file" class="form-control" id="file" name="file" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+</div>
+{% endblock %}

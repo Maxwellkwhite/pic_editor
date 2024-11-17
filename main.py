@@ -23,6 +23,9 @@ from openai import OpenAI
 import secrets
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from PIL import Image
 
 
 APP_NAME = 'Studyvant'
@@ -92,11 +95,10 @@ class Picture(db.Model):
     __tablename__ = "pictures"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
-    picture_json: Mapped[str] = mapped_column(JSON())
-    title: Mapped[str] = mapped_column(String())
-    class_name: Mapped[str] = mapped_column(String(250), unique=False, nullable=False)
-    total_questions: Mapped[int] = mapped_column(Integer)
-    best_score: Mapped[int] = mapped_column(Integer)
+    filename: Mapped[str] = mapped_column(String(250))
+    original_path: Mapped[str] = mapped_column(String(500))
+    cropped_path: Mapped[str] = mapped_column(String(500))
+    upload_date: Mapped[Date] = mapped_column(Date)
 
 class ClassList(db.Model):
     __tablename__ = "class_list"
@@ -125,13 +127,95 @@ class Feedback(db.Model):
 with app.app_context():
     db.create_all()
 
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route('/', methods=["GET", "POST"])
 def home_page():
     return render_template("index.html")
 
-@app.route('/picture', methods=["GET", "POST"])
+@app.route('/picture', methods=['GET', 'POST'])
 def picture():
-    return render_template("picture.html")
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file selected')
+            return redirect(request.url)
+            
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected')
+            return redirect(request.url)
+            
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Create user-specific folder
+            user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
+            os.makedirs(user_folder, exist_ok=True)
+            
+            # Save original file
+            original_path = os.path.join(user_folder, filename)
+            file.save(original_path)
+            
+            # Create new picture record
+            new_picture = Picture(
+                user_id=current_user.id,
+                filename=filename,
+                original_path=original_path,
+                upload_date=datetime.date.today()
+            )
+            db.session.add(new_picture)
+            db.session.commit()
+            
+            return redirect(url_for('crop_picture', picture_id=new_picture.id))
+            
+    return render_template('picture.html')
+
+@app.route('/crop-picture/<int:picture_id>', methods=['GET', 'POST'])
+def crop_picture(picture_id):
+    picture = Picture.query.get_or_404(picture_id)
+    
+    if picture.user_id != current_user.id:
+        return redirect(url_for('home_page'))
+        
+    if request.method == 'POST':
+        x = float(request.form['x'])
+        y = float(request.form['y'])
+        width = float(request.form['width'])
+        height = float(request.form['height'])
+        
+        # Open the image
+        img = Image.open(picture.original_path)
+        
+        # Crop the image
+        cropped_img = img.crop((x, y, x + width, y + height))
+        
+        # Generate cropped filename
+        filename_parts = os.path.splitext(picture.filename)
+        cropped_filename = f"{filename_parts[0]}_cropped{filename_parts[1]}"
+        cropped_path = os.path.join(
+            os.path.dirname(picture.original_path),
+            cropped_filename
+        )
+        
+        # Save the cropped image
+        cropped_img.save(cropped_path)
+        
+        # Update the database record
+        picture.cropped_path = cropped_path
+        db.session.commit()
+        
+        return redirect(url_for('picture'))
+        
+    return render_template('crop_picture.html', picture=picture)
 
 @app.route('/price-page', methods=["GET", "POST"])
 def price_page():
@@ -163,12 +247,13 @@ def register():
                 name=form.name.data,
                 password=hash_and_salted_password,
                 date_of_signup=datetime.date.today(),
+                time_of_signup=datetime.datetime.now().time(),
                 end_date_premium=datetime.date.today(),
                 premium_level=0,
                 points=0,
-                picture_count=1,
+                picture_count=100,
                 verified=False,
-                verification_token=verification_token
+                verification_token=verification_token,
             )
             
             # Send verification email before committing to database
@@ -209,7 +294,7 @@ def login():
             if user.picture_count == 0:
                 return redirect(url_for('price_page'))
             else:
-                return redirect(url_for('picture_selector'))
+                return redirect(url_for('picture'))
 
     return render_template("login.html", form=form, current_user=current_user)
 
@@ -398,7 +483,7 @@ def send_verification_email(email, token):
                 <div style="padding: 20px;">
                     <p>Thank you for registering! Please verify your email address to complete your account setup.</p>
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="{DOMAIN2}/verify/{token}" 
+                        <a href="{YOUR_DOMAIN}/verify/{token}" 
                            style="background-color: #007bff; color: white; padding: 12px 25px; 
                                   text-decoration: none; border-radius: 5px;">
                             Verify Email
@@ -406,7 +491,7 @@ def send_verification_email(email, token):
                     </div>
                     <p style="color: #666; font-size: 0.9em;">
                         If the button doesn't work, copy and paste this link into your browser:<br>
-                        {DOMAIN2}/verify/{token}
+                        {YOUR_DOMAIN}/verify/{token}
                     </p>
                 </div>
             </body>

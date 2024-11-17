@@ -2,8 +2,6 @@
 <html lang="en" data-bs-theme="auto">
   <head>
     <script src="../assets/js/color-modes.js"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MXHN4F3Q94"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -11,8 +9,6 @@
 
       gtag('config', 'G-MXHN4F3Q94');
     </script>
-    <!-- Google tag (gtag.js) for ads -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-16717626633"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -61,7 +57,7 @@
             {% endif %}
             {% if current_user.is_authenticated %}
             <li class="nav-item">
-              <a class="nav-link" aria-current="page" href="{{url_for('quiz_selector') }}">Dashboard</a>
+              <a class="nav-link" aria-current="page" href="{{url_for('picture') }}">Picture</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{{url_for('feedback') }}">Feedback</a>
