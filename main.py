@@ -88,8 +88,8 @@ class User(UserMixin, db.Model):
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_token: Mapped[str] = mapped_column(String(100), nullable=True)
 
-class picture(db.Model):
-    __tablename__ = "picturezes"
+class Picture(db.Model):
+    __tablename__ = "pictures"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
     picture_json: Mapped[str] = mapped_column(JSON())
