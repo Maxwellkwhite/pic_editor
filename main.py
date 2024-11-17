@@ -5,7 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, SelectField, PasswordField
 from wtforms.validators import DataRequired, Email, Length
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Date, JSON, Boolean
+from sqlalchemy import Integer, String, Date, Time, JSON, Boolean
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -16,7 +16,7 @@ import os
 import smtplib
 import json
 from flask_ckeditor import CKEditorField
-from datetime import date
+from datetime import date, time
 import datetime
 import os
 from openai import OpenAI
@@ -72,12 +72,6 @@ class Feedback_Form(FlaskForm):
     feedback = StringField("Feedback", validators=[DataRequired()])
     submit = SubmitField("Provide Feedback")
 
-class NoteInput(FlaskForm):
-    class_name = StringField("Class Name", validators=[DataRequired()])
-    title = StringField("Short picture Name (Max 20 characters)", validators=[DataRequired(), Length(max=20)], render_kw={"placeholder": "Example: 'Chapter 1 picture'"})
-    content = CKEditorField("Notes (Max 15000 characters)", validators=[DataRequired(), Length(max=15000, message="Notes must be less than 15000 characters")])
-    submit = SubmitField("Save Notes")
-
 #user DB
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -87,20 +81,12 @@ class User(UserMixin, db.Model):
     name: Mapped[str] = mapped_column(String(100))
     premium_level: Mapped[int] = mapped_column(Integer)
     date_of_signup: Mapped[Date] = mapped_column(Date)
+    time_of_signup: Mapped[Time] = mapped_column(Time)
     end_date_premium: Mapped[Date] = mapped_column(Date)
     points: Mapped[int] = mapped_column(Integer)
     picture_count: Mapped[int] = mapped_column(Integer)
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_token: Mapped[str] = mapped_column(String(100), nullable=True)
-
-class NoteList(db.Model):
-    __tablename__ = "note_lists"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # Create Foreign Key, "users.id" the users refers to the tablename of User.
-    user_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
-    class_name: Mapped[str] = mapped_column(String(250), unique=False, nullable=False)
-    title: Mapped[str] = mapped_column(String(250))
-    content: Mapped[str] = mapped_column(String())
 
 class picture(db.Model):
     __tablename__ = "picturezes"
@@ -145,153 +131,11 @@ def home_page():
 
 @app.route('/picture', methods=["GET", "POST"])
 def picture():
-    form = NoteInput()
-    if form.validate_on_submit():
-        # Check if user has remaining picturezes
-        user = User.query.get(current_user.id)
-        user.picture_count -= 1
-        db.session.commit()
-        # Save notes to the database
-        new_note = NoteList(
-            user_id=current_user.id,
-            class_name=form.class_name.data,
-            title=form.title.data,
-            content=form.content.data
-        )
-        db.session.add(new_note)
-        db.session.commit()
-        # Create an OpenAI client
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a picture generator assistant."},
-                {
-                    "role": "user",
-                    "content": f"""Create a picture based on the following notes. Ignore any pictures or links. Output the picture in JSON format with the following structure:
-                    {{
-                        "title": "picture Title",
-                        "questions": [
-                            {{
-                                "question": "Question text",
-                                "options": ["Option A", "Option B", "Option C", "Option D"],
-                                "correct_answer": "Correct option",
-                                "explanation": "Explanation for the correct answer"
-                            }},
-                            // More questions...
-                        ]
-                    }}
-                    
-                    Don't include the letter in the option choices or correct answer. Make the picture a suitable length based on the notes provided. Here are the notes to base the picture on:
-                    {form.content.data}"""
-                }
-            ]
-        )
-        picture_json = completion.choices[0].message.content
-        picture_json = picture_json.replace("```json\n", "")
-        picture_json = picture_json.replace("```", "")
-        picture_json = json.loads(picture_json)
-        new_picture = picture(
-            user_id=current_user.id,
-            picture_json=picture_json,
-            title=form.title.data,
-            class_name=form.class_name.data,
-            best_score=0,
-            total_questions=len(picture_json["questions"]),
-        )
-        db.session.add(new_picture)
-        db.session.commit()
-    # Check the type of picture_json
-    selected_picture = None
-    if request.args.get('picture_id'):
-        selected_picture = picture.query.get(request.args.get('picture_id'))
-    elif 'new_picture' in locals():  # Check if new_picture exists in local scope
-        selected_picture = new_picture
-    else:  # Get most recently created picture
-        selected_picture = picture.query.filter_by(user_id=current_user.id).order_by(picture.id.desc()).first()
-    return render_template("picture.html", form=form, selected_picture=selected_picture)
-
-@app.route('/picture-selector', methods=["GET", "POST"])
-def picture_selector():
-    form = NoteInput()
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-    elif current_user.is_authenticated:
-        class_list = ClassList.query.filter_by(user_id=current_user.id).all()
-    picturezes = picture.query.filter_by(user_id=current_user.id).all()
-    return render_template("picture_selector.html", form=form, class_list=class_list, picturezes=picturezes)
-
-@app.route('/delete-picture/<picture_id>', methods=["POST"])
-def delete_picture(picture_id):
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-        
-    picture_to_delete = picture.query.filter_by(id=picture_id, user_id=current_user.id).first()
-    if picture_to_delete:
-        db.session.delete(picture_to_delete)
-        db.session.commit()
-        flash(f'picture "{picture_to_delete.title}" deleted successfully')
-    return redirect(url_for('picture_selector'))
-
-
-@app.route('/add-class', methods=["GET", "POST"])
-def add_class():
-    if request.method == "POST":
-        new_class = ClassList(user_id=current_user.id, class_name=request.form.get("class_name"))
-        db.session.add(new_class)
-        db.session.commit()
-    return redirect(url_for('picture_selector'))
-
-@app.route('/delete-class/<class_name>', methods=["POST"])
-def delete_class(class_name):
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-        
-    # Delete the class and associated picturezes
-    class_to_delete = ClassList.query.filter_by(user_id=current_user.id, class_name=class_name).first()
-    if class_to_delete:
-        # Delete associated picturezes
-        picture.query.filter_by(user_id=current_user.id, class_name=class_name).delete()
-        # Delete the class
-        db.session.delete(class_to_delete)
-        db.session.commit()
-        flash(f'Class "{class_name}" deleted successfully')
-    return redirect(url_for('picture_selector'))
-
-@app.route('/update_best_score/<picture_id>', methods=["GET", "POST"])
-def update_best_score(picture_id):
-    if request.method == "POST":
-        with app.app_context():
-            completed_update = db.session.execute(db.select(picture).where(picture.id == picture_id)).scalar()
-            old_best_score = int(completed_update.best_score)
-            new_best_score = int(request.form.get("best_score"))
-            if old_best_score == 0 or new_best_score > old_best_score:
-                completed_update.best_score = new_best_score
-                db.session.commit()
-    return redirect(url_for('picture'))
+    return render_template("picture.html")
 
 @app.route('/price-page', methods=["GET", "POST"])
 def price_page():
     return render_template("price_page.html")
-
-@app.route('/notes', methods=["GET", "POST"])
-def notes():
-    # if not current_user.is_authenticated:
-    #     return redirect(url_for('login'))
-    form = NoteInput()
-    if form.validate_on_submit():
-        new_note = NoteList(
-            user_id=current_user.id,
-            class_name=form.class_name.data,
-            title=form.title.data,
-            content=form.content.data,
-        )
-        db.session.add(new_note)
-        db.session.commit()
-        flash('Note added successfully!')
-    # Get notes for the current user
-    user_notes = NoteList.query.filter_by(user_id=current_user.id).all()
-    return render_template("notes.html", form=form, notes=user_notes)
 
 
 @app.route('/register', methods=["GET", "POST"])
