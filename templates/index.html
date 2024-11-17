@@ -1,0 +1,166 @@
+{% include "header.html" %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studyvant - AI Quiz Generator | Create Study Quizzes From Notes</title>
+</head>
+<body>
+   <div class="container main">
+        <div class="row align-items-center">
+            <div class="text-center">
+                <a href="https://www.producthunt.com/posts/studyvant?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-studyvant" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=588770&theme=neutral" alt="Studyvant - Instantly&#0032;Create&#0032;Interactive&#0032;Quizzes&#0032;From&#0032;Your&#0032;Notes | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+            </div>
+                <h1 class="display-4 mb-4"><strong>Improve Your Studying with Interactive Quizzes, From Your Notes</strong></h1>
+                <p class="lead mb-4">Improve your grades and learn smarter. Instantly turn any of your class notes into interactive quizzes to maximize your studying.</p>
+                <div class="mb-4">
+                    <div style="width: 70%; margin: 0 auto;">
+                        <div class="ratio ratio-16x9 mb-4">
+                            <iframe 
+                                src="https://www.youtube.com/embed/g4Q7Dz79h_s?modestbranding=1&rel=0&showinfo=0" 
+                                title="Studyvant Demo Video"
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    </div>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            ✅ Create classes to organize your quizzes
+                        </li>
+                        <li class="mb-2">
+                            ✅ Track your progress and identify where you need to study more
+                        </li>
+                        <li class="mb-2">
+                            ✅ Study smarter with AI-powered question generation
+                        </li>
+                    </ul>
+                </div>
+                <p class="lead mb-4"><strong>Click the button below to get started with a free quiz!</strong></p>
+                <div class="d-flex gap-3">
+                    {% if not current_user.is_authenticated %}
+                        <a href="{{url_for('register')}}" class="btn btn-primary btn-lg">Start Creating Quizzes</a>
+                    {% else %}
+                        <a href="{{url_for('quiz_selector')}}" class="btn btn-primary btn-lg">Go to Your Quizzes</a>
+                    {% endif %}
+                </div>
+            </div>
+
+        <section class="my-5">
+            <h2 class="text-center mb-4">How It Works</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="display-4 mb-3">📝</div>
+                            <h3>Input Your Notes</h3>
+                            <p>Simply paste your study notes into Studyvant</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="display-4 mb-3">🤖</div>
+                            <h3>AI Generation</h3>
+                            <p>Our AI creates targeted questions from your content</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="display-4 mb-3">✅</div>
+                            <h3>Test Yourself</h3>
+                            <p>Take quizzes and track your progress</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section class="study_more_efficiently">
+            <h2 class="text-center mb-4">Study More Efficiently with AI</h2>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h3>Create Classes and Quizzes</h3>
+                            <p>Easily manage your quizzes and classes on one simplified dashboard:</p>
+                            <img src="{{ url_for('static', filename='images/full_view.png') }}" alt="Full view of quiz creation" class="img-fluid rounded mb-3">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h3>Take Interactive Quizzes</h3>
+                            <p>Take quizzes at your own pace and get instant results:</p>
+                            <img src="{{ url_for('static', filename='images/take_quiz.png') }}" alt="Taking a quiz" class="img-fluid rounded mb-3">
+                            <img src="{{ url_for('static', filename='images/feedback.png') }}" alt="Taking a quiz" class="img-fluid rounded mb-3">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section id="pricing">
+            <h2 class="text-center mb-4">Pricing Options</h2>
+            <p class="lead mb-4">We do pricing a little differently... You'll pay for quizzes you want generated.</p>
+            <div class="row justify-content-center g-3">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">10 Quizzes</h5>
+                            <h6 class="card-subtitle mb-2">$4.99</h6>
+                            <p class="card-text">Get 10 quizzes generated.</p>
+                            <p class="card-text-italic">About .50 per quiz.</p>
+                            {% if current_user.is_authenticated %}
+                                <a href="{{url_for('price_page')}}" class="btn btn-primary">Choose Package</a>
+                            {% else %}
+                                <a href="{{url_for('register')}}" class="btn btn-primary">Choose Package</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">25 Quizzes</h5>
+                            <h6 class="card-subtitle mb-2">$9.99</h6>
+                            <p class="card-text">Get 25 quizzes generated.</p>
+                            <p class="card-text-italic">About .40 per quiz.</p>
+                            {% if current_user.is_authenticated %}
+                            <a href="{{url_for('price_page')}}" class="btn btn-primary">Choose Package</a>
+                        {% else %}
+                            <a href="{{url_for('register')}}" class="btn btn-primary">Choose Package</a>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card" style="border: 3px solid #FFA500; border-radius: 15px; position: relative; overflow: visible;">
+                        <div style="position: absolute; top: -12px; right: -12px; background-color: #FFA500; color: #fff; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;">
+                            Best Value!
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">100 Quizzes</h5>
+                            <h6 class="card-subtitle mb-2">$24.99</h6>
+                            <p class="card-text">Get 100 quizzes generated.</p>
+                            <p class="card-text-italic">About .25 per quiz.</p>
+                            {% if current_user.is_authenticated %}
+                            <a href="{{url_for('price_page')}}" class="btn btn-primary">Choose Package</a>
+                        {% else %}
+                            <a href="{{url_for('register')}}" class="btn btn-primary">Choose Package</a>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+</body>
+</html>
+{% include "footer.html" %}

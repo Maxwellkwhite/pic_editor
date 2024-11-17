@@ -1,0 +1,233 @@
+{% include "header.html" %}
+{% block content %}
+<head>
+    <title>Studyvant Quiz | AI-Generated Study Quizzes | Interactive Learning</title>
+    <meta name="description" content="Take Studyvant's AI-generated quizzes. Engage in interactive learning and improve your knowledge.">
+    <meta name="keywords" content="Studyvant, AI Quiz Generator, Quizzes, Interactive Learning, Studyvant Quizzes">
+</head>
+    <main class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <a href="{{ url_for('quiz_selector') }}" class="btn btn-secondary mt-3 mb-1">
+                    Back to Dashboard
+                </a>
+                <!-- Display selected quiz -->
+                {% if selected_quiz %}
+                <div id="quizContainer" class="mt-4 bg-light shadow rounded p-4">
+                    
+                    <h2 class="text-primary mb-4 text-center">{{ selected_quiz.class_name }} - {{ selected_quiz.title }}</h2>
+                    <div id="questionContainer" class="mb-4"></div>
+                    <div class="d-flex justify-content-center">
+                        <button type="button" class="btn btn-primary shadow-sm mx-2" id="nextQuestion" style="display: none;">
+                            Next Question
+                        </button>
+                        <button type="button" class="btn btn-success shadow-sm mx-2" id="finishQuiz" style="display: none;">
+                            Finish Quiz
+                        </button>
+                        <button type="button" class="btn btn-info shadow-sm mx-2" id="refreshPage" style="display: none;">
+                            Retry Quiz
+                        </button>
+                        <button type="button" class="btn btn-primary shadow-sm mx-2" id="chooseAnotherQuiz" style="display: none;" onclick="window.location.href='{{ url_for('quiz_selector') }}'">
+                            Choose Another Quiz
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="mt-4 bg-light shadow rounded p-4 text-center">
+                    <h2 class="text-primary"><i class="fas fa-info-circle me-2"></i>Select a quiz from the left or create a new one</h2>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+<script>
+let currentQuestionIndex = 0;
+let correctAnswersCount = 0;
+let quizData = {% if selected_quiz %}{{ selected_quiz.quiz_json['questions'] | tojson }}{% else %}null{% endif %};
+
+function displayQuestion(index) {
+    const questionContainer = document.getElementById('questionContainer');
+    const question = quizData[index];
+    
+    let html = `
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-primary">${question['question']}</h5>
+                <p class="text-muted"></i>Question ${index + 1} of ${quizData.length}</p>
+                ${question['options'].map((option, i) => `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="question" id="option${i}" value="${option}" onchange="checkAnswer()">
+                        <label class="form-check-label" for="option${i}">${option}</label>
+                    </div>
+                `).join('')}
+                <div class="mt-3 feedback" style="display: none;">
+                    <p class="correct-answer alert alert-success" style="display: none;">Correct!</p>
+                    <p class="wrong-answer alert alert-danger" style="display: none;">Incorrect. The correct answer is: <span class="correct-answer-text"></span></p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    questionContainer.innerHTML = html;
+}
+
+function checkAnswer() {
+    const selectedOption = document.querySelector('input[name="question"]:checked');
+    const feedback = document.querySelector('.feedback');
+    const correctFeedback = feedback.querySelector('.correct-answer');
+    const wrongFeedback = feedback.querySelector('.wrong-answer');
+    const correctAnswerText = feedback.querySelector('.correct-answer-text');
+    
+    feedback.style.display = 'block';
+    
+    if (selectedOption) {
+        const correctAnswer = quizData[currentQuestionIndex]['correct_answer'];
+        correctAnswerText.textContent = correctAnswer;
+        
+        if (selectedOption.value === correctAnswer) {
+            correctFeedback.style.display = 'block';
+            wrongFeedback.style.display = 'none';
+            correctAnswersCount++;
+        } else {
+            correctFeedback.style.display = 'none';
+            wrongFeedback.style.display = 'block';
+        }
+        
+        if (currentQuestionIndex < quizData.length - 1) {
+            document.getElementById('nextQuestion').style.display = 'block';
+            document.getElementById('nextQuestion').scrollIntoView({ behavior: 'smooth' });
+        } else {
+            document.getElementById('finishQuiz').style.display = 'block';
+            document.getElementById('finishQuiz').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Disable all radio buttons after an answer is selected
+        document.querySelectorAll('input[name="question"]').forEach(input => {
+            input.disabled = true;
+        });
+    }
+}
+
+document.getElementById('nextQuestion').addEventListener('click', () => {
+    currentQuestionIndex++;
+    displayQuestion(currentQuestionIndex);
+    document.getElementById('nextQuestion').style.display = 'none';
+});
+
+document.getElementById('finishQuiz').addEventListener('click', () => {
+    const totalQuestions = quizData.length;
+    const score = correctAnswersCount;
+    
+    // Update the best score in the database
+    fetch('{{ url_for("update_best_score", quiz_id=selected_quiz.id if selected_quiz else "") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ form.csrf_token._value() }}'
+        },
+        body: `best_score=${score}`
+    }).then(response => {
+        if (response.ok) {
+            console.log('Best score updated successfully');
+        } else {
+            console.error('Failed to update best score');
+        }
+    });
+    
+    // Display the final score
+    const questionContainer = document.getElementById('questionContainer');
+    const bestScore = {{ selected_quiz.best_score if selected_quiz else 0 }};
+    let scoreMessage = `
+        <div class="d-flex justify-content-center align-items-center flex-column text-center">
+            <h3 class="text-primary mb-3"><i class="fas fa-trophy me-2"></i>Your final score is ${score}/${totalQuestions}</h3>`;
+    if (score > bestScore) {
+        scoreMessage += `<h4 class="text-success">You set a new high score of ${score}/${totalQuestions} correct!</h4>`;
+    }
+    if (score < bestScore) {
+        scoreMessage += `<h4 class="text-danger">You did not beat your best score of ${bestScore}/${totalQuestions}!</h4>`;
+    }
+    if (score == bestScore) {
+        scoreMessage += `<h4 class="text-info">You matched your best score of ${bestScore}/${totalQuestions}!</h4>`;
+    }
+    questionContainer.innerHTML = `<div>${scoreMessage}</div>`;
+    document.getElementById('finishQuiz').style.display = 'none';
+    document.getElementById('refreshPage').style.display = 'block';
+    document.getElementById('chooseAnotherQuiz').style.display = 'block';
+});
+
+document.getElementById('refreshPage').addEventListener('click', () => {
+    location.reload();
+});
+
+// Start the quiz if a quiz is selected
+if (quizData && quizData.length > 0) {
+    displayQuestion(currentQuestionIndex);
+}
+</script>
+
+
+<!-- Modal -->
+<div class="modal fade" id="createQuizModal" tabindex="-1" aria-labelledby="createQuizModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createQuizModalLabel">Create Quiz from Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('quiz') }}" id="quizForm">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.class_name.label(class="form-label") }}
+                        {{ form.class_name(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.content.label(class="form-label") }}
+                        {{ form.content(class="form-control") }}
+                        {{ ckeditor.load() }}
+                        {{ ckeditor.config(name='content') }}
+                    </div>
+                    {{ form.submit(class="btn btn-primary", value="Generate Quiz") }}
+                </form>
+                <div id="loadingSpinner" class="spinner-grow text-primary position-absolute top-50 start-50 translate-middle" role="status" style="display: none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let quizSubmitted = false;
+
+document.getElementById('quizForm').addEventListener('submit', function(event) {
+    if (quizSubmitted) {
+        event.preventDefault();
+        return;
+    }
+    
+    quizSubmitted = true;
+    document.getElementById('loadingSpinner').style.display = 'block';
+});
+
+document.getElementById('createQuizModal').addEventListener('hidden.bs.modal', function () {
+    if (quizSubmitted) {
+        document.getElementById('quizForm').reset();
+        document.getElementById('loadingSpinner').style.display = 'none';
+        quizSubmitted = false;
+    }
+});
+</script>
+<script>
+    if ( window.history.replaceState ) {
+        window.history.replaceState( null, null, window.location.href );
+    }
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% include "header.html" %}
+
+<div class="container mt-4">
+  {% if current_user.id == 1 %}
+    <div class="card">
+      <div class="card-header">
+        <h3>New Users Today</h3>
+      </div>
+      <div class="card-body">
+        {% if new_users %}
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Join Date</th>
+                <th>Quiz Count</th>
+                <th>Verified</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in new_users %}
+                <tr>
+                  <td>{{ user.email }}</td>
+                  <td>{{ user.date_of_signup }}</td>
+                  <td>{{ user.quiz_count }}</td>
+                  <td>
+                    {% if user.verified %}
+                      <span class="badge bg-success">Verified</span>
+                    {% else %}
+                      <span class="badge bg-warning">Pending</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>No new users today.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% include "footer.html" %}
