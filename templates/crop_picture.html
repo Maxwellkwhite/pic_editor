@@ -2,92 +2,114 @@
 {% block content %}
 
 <div class="container">
-    <h2 class="text-center mb-4">Crop Pictures</h2>
+    <h2 class="text-center mb-4">Crop Picture</h2>
     
-    <div class="row">
-        {% for picture in pictures %}
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Picture {{ loop.index }}</h5>
-                </div>
-                <div class="card-body">
-                    <div class="image-container">
-                        <img src="{{ url_for('static', filename=picture.original_path.replace('static/', '')) }}" 
-                             class="img-fluid cropper-image" 
-                             id="image{{ picture.id }}" 
-                             data-picture-id="{{ picture.id }}">
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-primary crop-button" data-picture-id="{{ picture.id }}">
-                            Crop Image
-                        </button>
-                    </div>
-                </div>
-            </div>
+    <div class="mb-4">
+        <h3>Crop Options</h3>
+        <div class="btn-group" role="group">
+            <button id="manualCropBtn" onclick="setCropMode('manual')" class="btn btn-primary">Manual Crop</button>
+            <button id="resolutionCropBtn" onclick="setCropMode('resolution')" class="btn btn-outline-primary">Crop by Resolution</button>
+            <button id="aspectCropBtn" onclick="setCropMode('aspect')" class="btn btn-outline-primary">Crop by Aspect Ratio</button>
+            <button id="aiCropBtn" onclick="setCropMode('ai')" class="btn btn-outline-primary">AI Crop</button>
         </div>
-        {% endfor %}
     </div>
     
-    <div class="text-center mt-4 mb-5">
-        <a href="{{ url_for('picture') }}" class="btn btn-secondary">Back to Pictures</a>
+    <div id="cropOptions" class="mt-3 mb-3">
+        <div id="resolutionOptions" style="display: none;">
+            <input type="number" id="cropWidth" placeholder="Width" class="form-control d-inline-block" style="width: 100px;">
+            <input type="number" id="cropHeight" placeholder="Height" class="form-control d-inline-block" style="width: 100px;">
+            <button onclick="applyCropResolution()" class="btn btn-primary">Apply Resolution</button>
+        </div>
+        <div id="aspectOptions" style="display: none;">
+            <select id="aspectRatio" class="form-control d-inline-block" style="width: 200px;">
+                <option value="1:1">1:1 (Square)</option>
+                <option value="4:3">4:3</option>
+                <option value="16:9">16:9</option>
+                <option value="2:3">2:3</option>
+            </select>
+            <button onclick="applyCropAspect()" class="btn btn-primary">Apply Aspect Ratio</button>
+        </div>
+        <div id="aiOptions" style="display: none;">
+            <button onclick="applyCropAI()" class="btn btn-primary">Apply AI Crop</button>
+        </div>
+    </div>
+    
+    <div style="max-width: 800px; margin: 0 auto;">
+        <img id="image" src="data:image/jpeg;base64,{{ image_data }}" style="max-width: 100%;" />
+    </div>
+
+    <div style="margin-top: 20px; text-align: center;">
+        <button onclick="cropImage()" class="btn btn-success">Crop and Download</button>
     </div>
 </div>
 
-<!-- Add necessary JavaScript for cropping functionality -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+
 <script>
+let cropper;
+
 document.addEventListener('DOMContentLoaded', function() {
-    const croppers = {};
-    
-    // Initialize Cropper.js for each image
-    document.querySelectorAll('.cropper-image').forEach(image => {
-        const pictureId = image.dataset.pictureId;
-        croppers[pictureId] = new Cropper(image, {
-            aspectRatio: NaN,
-            viewMode: 2,
-            // Add other Cropper.js options as needed
-        });
-    });
-    
-    // Handle crop button clicks
-    document.querySelectorAll('.crop-button').forEach(button => {
-        button.addEventListener('click', function() {
-            const pictureId = this.dataset.pictureId;
-            const cropper = croppers[pictureId];
-            
-            // Get cropped canvas
-            const croppedCanvas = cropper.getCroppedCanvas();
-            
-            // Convert to blob and send to server
-            croppedCanvas.toBlob(function(blob) {
-                const formData = new FormData();
-                formData.append('cropped_image', blob);
-                formData.append('picture_id', pictureId);
-                
-                // Send to server (you'll need to create this endpoint)
-                fetch('/save-cropped-image', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Image cropped successfully!');
-                    } else {
-                        alert('Error cropping image');
-                    }
-                });
-            });
-        });
+    const image = document.getElementById('image');
+    cropper = new Cropper(image, {
+        aspectRatio: NaN,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 1,
     });
 });
 
-// Modify your existing cropping JavaScript to handle direct download
+function setCropMode(mode) {
+    document.getElementById('resolutionOptions').style.display = 'none';
+    document.getElementById('aspectOptions').style.display = 'none';
+    document.getElementById('aiOptions').style.display = 'none';
+
+    // Reset all buttons to outline
+    document.getElementById('manualCropBtn').className = 'btn btn-outline-primary';
+    document.getElementById('resolutionCropBtn').className = 'btn btn-outline-primary';
+    document.getElementById('aspectCropBtn').className = 'btn btn-outline-primary';
+    document.getElementById('aiCropBtn').className = 'btn btn-outline-primary';
+
+    if (mode === 'resolution') {
+        document.getElementById('resolutionOptions').style.display = 'block';
+        document.getElementById('resolutionCropBtn').className = 'btn btn-primary';
+    } else if (mode === 'aspect') {
+        document.getElementById('aspectOptions').style.display = 'block';
+        document.getElementById('aspectCropBtn').className = 'btn btn-primary';
+    } else if (mode === 'ai') {
+        document.getElementById('aiOptions').style.display = 'block';
+        document.getElementById('aiCropBtn').className = 'btn btn-primary';
+    } else if (mode === 'manual') {
+        document.getElementById('manualCropBtn').className = 'btn btn-primary';
+    }
+
+    cropper.setAspectRatio(NaN);
+}
+
+function applyCropResolution() {
+    const width = parseInt(document.getElementById('cropWidth').value);
+    const height = parseInt(document.getElementById('cropHeight').value);
+    if (width && height) {
+        cropper.setAspectRatio(width / height);
+    }
+}
+
+function applyCropAspect() {
+    const aspect = document.getElementById('aspectRatio').value;
+    const [width, height] = aspect.split(':').map(Number);
+    cropper.setAspectRatio(width / height);
+}
+
+function applyCropAI() {
+    // This is a placeholder for AI cropping
+    // In a real implementation, you would send the image to a server
+    // for AI analysis and receive optimal crop coordinates
+    alert('AI cropping would be applied here. This is a placeholder.');
+}
+
 function cropImage() {
-    // Get cropped canvas data
     const croppedData = cropper.getCroppedCanvas().toDataURL();
     
-    // Send to server for download
     fetch('/save-cropped-image', {
         method: 'POST',
         headers: {
@@ -97,7 +119,6 @@ function cropImage() {
     })
     .then(response => response.blob())
     .then(blob => {
-        // Create download link
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -109,51 +130,5 @@ function cropImage() {
 }
 </script>
 
-<!-- Make sure you have the Cropper.js CSS and JS included in your template -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
-
-<div style="max-width: 800px; margin: 0 auto;">
-    <img id="image" src="data:image/jpeg;base64,{{ image_data }}" style="max-width: 100%;" />
-</div>
-
-<div style="margin-top: 20px; text-align: center;">
-    <button onclick="cropImage()" class="btn btn-primary">Crop and Download</button>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const image = document.getElementById('image');
-    const cropper = new Cropper(image, {
-        aspectRatio: NaN,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 1,
-    });
-
-    window.cropImage = function() {
-        const croppedData = cropper.getCroppedCanvas().toDataURL();
-        
-        fetch('/save-cropped-image', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'cropped_image=' + encodeURIComponent(croppedData)
-        })
-        .then(response => response.blob())
-        .then(blob => {
-            // Create download link
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'cropped_image.png';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        });
-    }
-});
-</script>
-
 {% endblock %}
+{% include "footer.html" %}
