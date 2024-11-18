@@ -170,14 +170,18 @@ def picture():
                 user_id=current_user.id,
                 filename=filename,
                 original_path=original_path,
-                upload_date=datetime.date.today()
+                upload_date=datetime.date.today(),
+                cropped_path=original_path
             )
             db.session.add(new_picture)
             db.session.commit()
             
             return redirect(url_for('crop_picture', picture_id=new_picture.id))
-            
-    return render_template('picture.html')
+    
+    # Fetch all pictures for the current user
+    user_pictures = Picture.query.filter_by(user_id=current_user.id).all()
+    
+    return render_template('picture.html', pictures=user_pictures)
 
 @app.route('/crop-picture/<int:picture_id>', methods=['GET', 'POST'])
 def crop_picture(picture_id):
