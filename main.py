@@ -198,11 +198,12 @@ def save_cropped_image():
         return jsonify({'success': False, 'error': 'Not authenticated'})
 
     try:
-        # Get the cropped image data from the request
+        # Get the cropped image data and original filename from the request
         image_data = request.form.get('cropped_image')
+        original_filename = request.form.get('original_filename')
         
-        if not image_data:
-            return jsonify({'success': False, 'error': 'No image data received'})
+        if not image_data or not original_filename:
+            return jsonify({'success': False, 'error': 'No image data or filename received'})
 
         # Remove the data URL prefix to get just the base64 data
         image_data = image_data.split(',')[1]
@@ -210,10 +211,14 @@ def save_cropped_image():
         # Convert base64 to binary
         image_binary = base64.b64decode(image_data)
         
+        # Create the new filename
+        name, ext = os.path.splitext(original_filename)
+        new_filename = f"{name}_cropped{ext}"
+        
         # Create response with file download headers
         response = make_response(image_binary)
         response.headers.set('Content-Type', 'image/png')
-        response.headers.set('Content-Disposition', 'attachment', filename='cropped_image.png')
+        response.headers.set('Content-Disposition', 'attachment', filename=new_filename)
         
         return response
 

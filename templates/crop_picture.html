@@ -41,6 +41,9 @@
     <div style="margin-top: 20px; text-align: center;">
         <button onclick="cropImage()" class="btn btn-success">Crop and Download</button>
     </div>
+    <div style="margin-top: 10px; text-align: center;">
+        <button onclick="window.location.reload()" class="btn btn-secondary">Start Over</button>
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
@@ -109,20 +112,25 @@ function applyCropAI() {
 
 function cropImage() {
     const croppedData = cropper.getCroppedCanvas().toDataURL();
+    const originalFilename = '{{ filename }}';
+    const filenameParts = originalFilename.split('.');
+    const extension = filenameParts.pop();
+    const nameWithoutExtension = filenameParts.join('.');
+    const newFilename = `${nameWithoutExtension}_cropped.${extension}`;
     
     fetch('/save-cropped-image', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'cropped_image=' + encodeURIComponent(croppedData)
+        body: 'cropped_image=' + encodeURIComponent(croppedData) + '&original_filename=' + encodeURIComponent(originalFilename)
     })
     .then(response => response.blob())
     .then(blob => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'cropped_image.png';
+        a.download = newFilename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
