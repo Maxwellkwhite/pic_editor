@@ -1,55 +1,86 @@
 {% include "header.html" %}
-<div class="container mt-5">
-    <h1>Crop Picture</h1>
+{% block content %}
+
+<div class="container">
+    <h2 class="text-center mb-4">Crop Pictures</h2>
     
     <div class="row">
-        <div class="col-md-8">
-            <div id="image-container">
-                <img id="image" src="{{ url_for('static', filename=picture.original_path) }}" alt="Upload">
+        {% for picture in pictures %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Picture {{ loop.index }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="image-container">
+                        <img src="{{ url_for('static', filename=picture.original_path.replace('static/', '')) }}" 
+                             class="img-fluid cropper-image" 
+                             id="image{{ picture.id }}" 
+                             data-picture-id="{{ picture.id }}">
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary crop-button" data-picture-id="{{ picture.id }}">
+                            Crop Image
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <form id="crop-form" method="post">
-                <input type="hidden" name="x" id="crop-x">
-                <input type="hidden" name="y" id="crop-y">
-                <input type="hidden" name="width" id="crop-width">
-                <input type="hidden" name="height" id="crop-height">
-                <button type="submit" class="btn btn-primary">Save Crop</button>
-            </form>
-        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="text-center mt-4 mb-5">
+        <a href="{{ url_for('picture') }}" class="btn btn-secondary">Back to Pictures</a>
     </div>
 </div>
 
-<!-- Include Cropper.js -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
-
+<!-- Add necessary JavaScript for cropping functionality -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const image = document.getElementById('image');
-    const cropForm = document.getElementById('crop-form');
+    const croppers = {};
     
-    const cropper = new Cropper(image, {
-        aspectRatio: 1, // 1:1 aspect ratio
-        viewMode: 1,
-        crop(event) {
-            document.getElementById('crop-x').value = event.detail.x;
-            document.getElementById('crop-y').value = event.detail.y;
-            document.getElementById('crop-width').value = event.detail.width;
-            document.getElementById('crop-height').value = event.detail.height;
-        }
+    // Initialize Cropper.js for each image
+    document.querySelectorAll('.cropper-image').forEach(image => {
+        const pictureId = image.dataset.pictureId;
+        croppers[pictureId] = new Cropper(image, {
+            aspectRatio: NaN,
+            viewMode: 2,
+            // Add other Cropper.js options as needed
+        });
+    });
+    
+    // Handle crop button clicks
+    document.querySelectorAll('.crop-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const pictureId = this.dataset.pictureId;
+            const cropper = croppers[pictureId];
+            
+            // Get cropped canvas
+            const croppedCanvas = cropper.getCroppedCanvas();
+            
+            // Convert to blob and send to server
+            croppedCanvas.toBlob(function(blob) {
+                const formData = new FormData();
+                formData.append('cropped_image', blob);
+                formData.append('picture_id', pictureId);
+                
+                // Send to server (you'll need to create this endpoint)
+                fetch('/save-cropped-image', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Image cropped successfully!');
+                    } else {
+                        alert('Error cropping image');
+                    }
+                });
+            });
+        });
     });
 });
 </script>
 
-<style>
-#image-container {
-    max-width: 100%;
-    height: 500px;
-}
-#image {
-    max-width: 100%;
-    max-height: 100%;
-}
-</style>
-{% include "footer.html" %}
+{% endblock %}

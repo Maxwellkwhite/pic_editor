@@ -175,51 +175,37 @@ def picture():
             )
             db.session.add(new_picture)
             db.session.commit()
-            
-            return redirect(url_for('crop_picture', picture_id=new_picture.id))
-    
+                
     # Fetch all pictures for the current user
     user_pictures = Picture.query.filter_by(user_id=current_user.id).all()
     
     return render_template('picture.html', pictures=user_pictures)
 
 @app.route('/crop-picture/<int:picture_id>', methods=['GET', 'POST'])
-def crop_picture(picture_id):
-    picture = Picture.query.get_or_404(picture_id)
+def crop_picture(picture_id=None):
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
     
-    if picture.user_id != current_user.id:
-        return redirect(url_for('home_page'))
+    # Handle multiple picture IDs from form
+    picture_ids = request.form.getlist('image_ids[]')
+    
+    # If no IDs from form, try URL parameter
+    if not picture_ids and picture_id:
+        picture_ids = [picture_id]
         
-    if request.method == 'POST':
-        x = float(request.form['x'])
-        y = float(request.form['y'])
-        width = float(request.form['width'])
-        height = float(request.form['height'])
-        
-        # Open the image
-        img = Image.open(picture.original_path)
-        
-        # Crop the image
-        cropped_img = img.crop((x, y, x + width, y + height))
-        
-        # Generate cropped filename
-        filename_parts = os.path.splitext(picture.filename)
-        cropped_filename = f"{filename_parts[0]}_cropped{filename_parts[1]}"
-        cropped_path = os.path.join(
-            os.path.dirname(picture.original_path),
-            cropped_filename
-        )
-        
-        # Save the cropped image
-        cropped_img.save(cropped_path)
-        
-        # Update the database record
-        picture.cropped_path = cropped_path
-        db.session.commit()
-        
-        return redirect(url_for('picture'))
-        
-    return render_template('crop_picture.html', picture=picture)
+    if not picture_ids:
+        abort(400)  # Bad request if no picture IDs provided
+
+    # Get all pictures that belong to current user
+    pictures = Picture.query.filter(
+        Picture.id.in_([int(pid) for pid in picture_ids]),
+        Picture.user_id == current_user.id
+    ).all()
+
+    if not pictures:
+        abort(404)  # Not found if no pictures exist
+    
+    return render_template('crop_picture.html', pictures=pictures)
 
 @app.route('/price-page', methods=["GET", "POST"])
 def price_page():
@@ -578,6 +564,30 @@ def user_dashboard():
 @app.route('/education-resources', methods=['POST', 'GET'])
 def education_resources():
     return render_template("education_resources.html")
+
+@app.route('/crop-multiple-pictures', methods=['POST'])
+def crop_multiple_pictures():
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    
+    # Get selected picture IDs from form
+    picture_ids = request.form.getlist('picture_ids')
+    
+    if not picture_ids:
+        flash('No pictures selected')
+        return redirect(url_for('picture'))
+    
+    # Get all pictures that belong to current user
+    pictures = Picture.query.filter(
+        Picture.id.in_(picture_ids),
+        Picture.user_id == current_user.id
+    ).all()
+    
+    if not pictures:
+        flash('No valid pictures found')
+        return redirect(url_for('picture'))
+    
+    return render_template('crop_picture.html', pictures=pictures)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5002)

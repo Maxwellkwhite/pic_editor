@@ -11,13 +11,36 @@
     </form>
     <div class="mt-4">
         <h2>Your Uploaded Pictures</h2>
-        <div class="row">
-            {% for picture in pictures %}
-                <div class="col-md-4">
-                    <img src="{{ picture.cropped_path }}" alt="Upload" class="img-fluid">
+        <form action="{{ url_for('crop_multiple_pictures') }}" method="post">
+            <div class="row">
+                {% for picture in pictures %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="{{ url_for('static', filename=picture.original_path.replace('static/', '')) }}" 
+                             class="card-img-top" alt="Uploaded Image">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="picture_ids" 
+                                       value="{{ picture.id }}" id="picture{{ picture.id }}">
+                                <label class="form-check-label" for="picture{{ picture.id }}">
+                                    Select for cropping
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            {% endfor %}
-        </div>
+                {% endfor %}
+            </div>
+            
+            <div class="text-center mt-3 mb-5">
+                <button type="submit" class="btn btn-primary">Crop Selected Pictures</button>
+            </div>
+        </form>
     </div>
+    <script>
+      if ( window.history.replaceState ) {
+          window.history.replaceState( null, null, window.location.href );
+      }
+  </script>  
 {% endblock %}
 {% include "footer.html" %}
