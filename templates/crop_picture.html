@@ -81,6 +81,79 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Modify your existing cropping JavaScript to handle direct download
+function cropImage() {
+    // Get cropped canvas data
+    const croppedData = cropper.getCroppedCanvas().toDataURL();
+    
+    // Send to server for download
+    fetch('/save-cropped-image', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'cropped_image=' + encodeURIComponent(croppedData)
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'cropped_image.png';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+}
+</script>
+
+<!-- Make sure you have the Cropper.js CSS and JS included in your template -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+
+<div style="max-width: 800px; margin: 0 auto;">
+    <img id="image" src="data:image/jpeg;base64,{{ image_data }}" style="max-width: 100%;" />
+</div>
+
+<div style="margin-top: 20px; text-align: center;">
+    <button onclick="cropImage()" class="btn btn-primary">Crop and Download</button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const image = document.getElementById('image');
+    const cropper = new Cropper(image, {
+        aspectRatio: NaN,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 1,
+    });
+
+    window.cropImage = function() {
+        const croppedData = cropper.getCroppedCanvas().toDataURL();
+        
+        fetch('/save-cropped-image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'cropped_image=' + encodeURIComponent(croppedData)
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cropped_image.png';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        });
+    }
+});
 </script>
 
 {% endblock %}

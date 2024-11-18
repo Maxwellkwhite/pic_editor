@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, session
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, session, make_response
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from flask_wtf import FlaskForm
@@ -26,6 +26,8 @@ from email.mime.multipart import MIMEMultipart
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from PIL import Image
+from io import BytesIO
+import base64
 
 
 APP_NAME = 'Studyvant'
@@ -144,7 +146,7 @@ def home_page():
 def picture():
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
-        
+    
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file selected')
@@ -156,30 +158,13 @@ def picture():
             return redirect(request.url)
             
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            # Create user-specific folder
-            user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(current_user.id))
-            os.makedirs(user_folder, exist_ok=True)
-            
-            # Save original file
-            original_path = os.path.join(user_folder, filename)
-            file.save(original_path)
-            
-            # Create new picture record
-            new_picture = Picture(
-                user_id=current_user.id,
-                filename=filename,
-                original_path=original_path,
-                upload_date=datetime.date.today(),
-                cropped_path=original_path
-            )
-            db.session.add(new_picture)
-            db.session.commit()
-                
-    # Fetch all pictures for the current user
-    user_pictures = Picture.query.filter_by(user_id=current_user.id).all()
+            # Instead of saving, pass the file directly to the template
+            file_data = base64.b64encode(file.read()).decode()
+            return render_template('crop_picture.html', 
+                                image_data=file_data, 
+                                filename=secure_filename(file.filename))
     
-    return render_template('picture.html', pictures=user_pictures)
+    return render_template('picture.html')
 
 @app.route('/crop-picture/<int:picture_id>', methods=['GET', 'POST'])
 def crop_picture(picture_id=None):
@@ -206,6 +191,35 @@ def crop_picture(picture_id=None):
         abort(404)  # Not found if no pictures exist
     
     return render_template('crop_picture.html', pictures=pictures)
+
+@app.route('/save-cropped-image', methods=['POST'])
+def save_cropped_image():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'Not authenticated'})
+
+    try:
+        # Get the cropped image data from the request
+        image_data = request.form.get('cropped_image')
+        
+        if not image_data:
+            return jsonify({'success': False, 'error': 'No image data received'})
+
+        # Remove the data URL prefix to get just the base64 data
+        image_data = image_data.split(',')[1]
+        
+        # Convert base64 to binary
+        image_binary = base64.b64decode(image_data)
+        
+        # Create response with file download headers
+        response = make_response(image_binary)
+        response.headers.set('Content-Type', 'image/png')
+        response.headers.set('Content-Disposition', 'attachment', filename='cropped_image.png')
+        
+        return response
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/price-page', methods=["GET", "POST"])
 def price_page():
